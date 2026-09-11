@@ -1,3 +1,7 @@
+import os
+import subprocess
+import requests
+from flask import request
 from flask import Flask, request, jsonify
 import asyncio
 import aiohttp
@@ -513,6 +517,49 @@ def handle_requests():
             ),
             mimetype="application/json"
         ), 500
+     # ============ TELEGRAM BOT ============
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
+@app.route(f"/webhook/{TELEGRAM_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    data = request.get_json()
+    if not data or "message" not in data:
+        return "ok", 200
+
+    chat_id = data["message"]["chat"]["id"]
+    text = data["message"].get("text", "").strip()
+
+    if text == "/gettk":
+        requests.post(f"{TELEGRAM_API}/sendMessage", json={
+            "chat_id": chat_id,
+            "text": "⏳ Đang lấy token, vui lòng đợi..."
+        })
+        try:
+            result = subprocess.run(
+                ["python", "gettk.py"],
+                capture_output=True, text=True, timeout=300
+            )
+            token_count = 0
+            if os.path.exists("tokenlikes.txt"):
+                with open("tokenlikes.txt", "r") as f:
+                    token_count = len(f.readlines())
+            requests.post(f"{TELEGRAM_API}/sendMessage", json={
+                "chat_id": chat_id,
+                "text": f"✅ Đã lấy token mới!\n📦 Tổng: {token_count} token\n📝 Log: {result.stdout[-300:]}"
+            })
+        except Exception as e:
+            requests.post(f"{TELEGRAM_API}/sendMessage", json={
+                "chat_id": chat_id,
+                "text": f"❌ Lỗi: {str(e)}"
+            })
+    else:
+        requests.post(f"{TELEGRAM_API}/sendMessage", json={
+            "chat_id": chat_id,
+            "text": "Gõ /gettk để lấy token mới."
+        })
+
+    return "ok", 200
+# =======================================
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=25265)
