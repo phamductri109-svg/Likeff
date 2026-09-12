@@ -1,0 +1,39 @@
+name: Auto Get Token
+
+on:
+  schedule:
+    - cron: '0 22 * * *'  # Chạy mỗi 5 giờ
+  workflow_dispatch:         # Cho phép chạy thủ công
+
+jobs:
+  get-token:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # Cần quyền ghi để push file token
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run gettk.py
+        run: python gettk.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tokenlikes.txt
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Auto update tokenlikes.txt"
+            git push
+          fi
